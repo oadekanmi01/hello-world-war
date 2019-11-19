@@ -1,11 +1,32 @@
-node{
-   stage('Git Sub version Checkout'){
-     git 'https://github.com/yomesky2000/hello-world-war'
-   }
-
-   stage('Compile-Package'){
-      // Get Maven Home Path
-      def mvnHome = tool name: 'maven-3', type: 'maven'
-      sh "${mvnHome}/bin/mvn package"
-   }
+pipeline {
+    agent any
+	stages {
+	    stage('SCM checkout') {
+		    steps {
+			    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+               sh "exit 0"
+               }      
+			   sh 'mvn clean install -Dmaven.test.skip=true'
+				  
+			}
+		}
+	}
+	post {
+        always {
+            echo 'This will always run'
+        }
+        success {
+            echo 'This will run only if successful'
+        }
+        failure {
+            echo 'This will run only if failed'
+        }
+        unstable {
+            echo 'This will run only if the run was marked as unstable'
+        }
+        changed {
+            echo 'This will run only if the state of the Pipeline has changed'
+            echo 'For example, if the Pipeline was previously failing but is now successful'
+        }
+    }
 }

@@ -3,7 +3,7 @@ pipeline {
 	stages {
 	    stage('SCM checkout') {
 		    steps {
-			   catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+				catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                sh "exit 0"
                }      
 			   sh 'mvn clean install -Dmaven.test.skip=true'
@@ -11,6 +11,35 @@ pipeline {
 				  
 			}
 		}
-		
+		stage('DeployToTest') {
+		    when {
+		        branch 'master'
+		    }
+		    steps {
+		        withCredentials([usernamePassword(credentialsId: 'web-App', usernameVariable: 'USERNAME', passwordVariable: 'USERPASS')]) {
+		            sshPublisher(
+		                failOnError: true,
+		                continueOnError: false,
+		                publishers: [
+		                    sshPublisherDesc(
+		                        configName: 'test-dz-ec2',
+		                        sshCredentials: [
+		                            username: "$USERNAME",
+		                            encryptedPassphrase: "$USERPASS"
+		                        ], 
+		                        transfers: [
+		                            sshTransfer(
+		                                sourceFiles: 'target/hello-world-war-1.0.0.war',
+		                                removePrefix: 'target/',
+		                                remoteDirectory: '/tmp',
+										execCommand: 'sudo systemctl stop tomcat && sudo rm -rf /var/lib/tomcat/webapps/hello-world-war*.war && sudo mv /tmp/hello-world-war-1.0.0.war /var/lib/tomcat/webapps/  && chown tomcat. /var/lib/tomcat/webapps/hello-world-war*.war && sudo systemctl start tomcat'
+		                            )
+		                        ]
+		                    )
+		                ]
+		            )
+		        }
+		    }
+		}
 	}
 }

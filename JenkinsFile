@@ -3,31 +3,44 @@ pipeline {
 	stages {
 	    stage('SCM checkout') {
 		    steps {
+				cleanWs()
 			    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                sh "exit 0"
                }      
 			   sh 'mvn clean install -Dmaven.test.skip=true'
 			   archiveArtifacts artifacts: 'dist/hello-world-war-1.0.0.war'
+				  
 			}
 		}
+		stage('DeployToTest') {
+		    when {
+		        branch 'master'
+		    }
+		    steps {
+		        withCredentials([usernamePassword(credentialsId: 'web-App', usernameVariable: 'USERNAME', passwordVariable: 'USERPASS')]) {
+		            sshPublisher(
+		                failOnError: true,
+		                continueOnError: false,
+		                publishers: [
+		                    sshPublisherDesc(
+		                        configName: 'test-dz-ec2',
+		                        sshCredentials: [
+		                            username: "$USERNAME",
+		                            encryptedPassphrase: "$USERPASS"
+		                        ], 
+		                        transfers: [
+		                            sshTransfer(
+		                                sourceFiles: 'dist/hello-world-war-1.0.0.war',
+		                                removePrefix: 'dist/',
+		                                remoteDirectory: '/tmp',
+										execCommand: 'sudo systemctl stop tomcat && sudo rm -rf /var/lib/tomcat/webapps/hello-world-war*.war && sudo mv /tmp/hello-world-war-1.0.0.war /var/lib/tomcat/webapps/  && chown tomcat. 
+		                            )
+		                        ]
+		                    )
+		                ]
+		            )
+		        }
+		    }
+		}
 	}
-	post {
-        always {
-            echo 'This will always run'
-	    cleanWs()
-        }
-        success {
-            echo 'This will run only if successful'
-        }
-        failure {
-            echo 'This will run only if failed'
-        }
-        unstable {
-            echo 'This will run only if the run was marked as unstable'
-        }
-        changed {
-            echo 'This will run only if the state of the Pipeline has changed'
-            echo 'For example, if the Pipeline was previously failing but is now successful'
-        }
-    }
 }

@@ -3,8 +3,7 @@ pipeline {
 	stages {
 	    stage('SCM checkout') {
 		    steps {
-				cleanWs()
-			    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+			   catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                sh "exit 0"
                }      
 			   sh 'mvn clean install -Dmaven.test.skip=true'

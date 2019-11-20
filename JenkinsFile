@@ -7,7 +7,7 @@ pipeline {
                sh "exit 0"
                }      
 			   sh 'mvn clean install -Dmaven.test.skip=true'
-				  
+			   archiveArtifacts artifacts: 'dist/hello-world-war-1.0.0.war'
 			}
 		}
 	}

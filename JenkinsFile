@@ -3,7 +3,6 @@ pipeline {
 	stages {
 	    stage('SCM checkout') {
 		    steps {
-				cleanWs()
 			    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                sh "exit 0"
                }      

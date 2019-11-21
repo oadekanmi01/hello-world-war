@@ -1,11 +1,6 @@
 pipeline {
     agent any
-	options {
-	  skipDefaultCheckout()
-	  buildDiscarder(logRotator(artifactDaysToKeepStr: '30', artifactNumToKeepStr: '30', daysToKeepStr: '30', numToKeepStr: '30'))
-	  disableConcurrentBuilds()
-	
-	}
+
 	stages {
 		stage('Verify Tools') {
 		  parallel {

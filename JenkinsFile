@@ -1,7 +1,27 @@
 pipeline {
     agent any
+	options {
+	  skipDefaultCheckout()
+	  buildDiscarder(logRotator(artifactDaysToKeepStr: '30', artifactNumToKeepStr: '30', daysToKeepStr: '30', numToKeepStr: '30'))
+	  disableConcurrentBuilds()
+	
+	}
 	stages {
-	    stage('SCM checkout') {
+		stage('Verify Tools') {
+		  parallel {
+		    stage('Verify Git') {
+		      steps {
+		        sh 'git --version'
+		      }
+		    }
+		    stage('Verify Maven') {
+		      steps {
+		        sh 'mvn -v'
+		      }
+		    }
+		  }
+		}
+		stage('SCM checkout') {
 		    steps {
 				catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                sh "exit 0"

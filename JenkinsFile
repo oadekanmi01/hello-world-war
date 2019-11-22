@@ -47,7 +47,7 @@ pipeline {
 		                                sourceFiles: 'target/hello-world-war-1.1.2.war',
 		                                removePrefix: 'target/',
 		                                remoteDirectory: '/tmp',
-										execCommand: 'sudo systemctl stop tomcat && sudo rm -rf /var/lib/tomcat/webapps/hello-world-war*.war && sudo mv /tmp/hello-world-war-*.war /var/lib/tomcat/webapps/  && chown tomcat. /var/lib/tomcat/webapps/hello-world-war*.war && sudo systemctl start tomcat'
+										execCommand: 'sudo systemctl stop tomcat && sudo rm -rf /var/lib/tomcat/webapps/hello-world* && sudo cp /tmp/hello-world-war-*.war /var/lib/tomcat/webapps/  && chown tomcat. /var/lib/tomcat/webapps/hello-world-war*.war && sudo systemctl start tomcat'
 		                            )
 		                        ]
 		                    )

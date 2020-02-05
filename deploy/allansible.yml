@@ -1,0 +1,521 @@
+http://www.yamllint.com/
+
+ansible -m ping
+ansible -m command -a "uptime" dev
+ansible -m command -a "hostname" dev
+ansible -m command -a "uname -r" dev
+ansible -m command -a "cat /etc/redhat-release" dev
+ansible -m command -a "cat /etc/*-release" dev
+ansible --list-hosts Prod
+ansible -m ping dev
+ansible --version
+python --version
+ansible -m file -a "dest=/tmp/test_nameoffile mode=777 owner=ola group=ola" dev    (to give permission and change ownership to file in the remote nodes)
+ansible -m file -a "dest=/tmp/test_nameoffile mode=777 owner=ola group=ola" dev --become --become-method=sudo --become-user=root -K
+ansible -m file -a "dest=/tmp/test_nameoffile mode=777 owner=ola group=ola" dev --become -K
+192.168.[4:7].[0.255]   - this means all IPs from 192.168.4.0 through 192.168.7.255
+server[01:20].example.com : this means all hosts from server01.example.com through server20.example.com
+
+
+Ansible Components:
+ -Ansible.cfg: This is where you set the behaviour of ansible
+ -Host Inventory: This is where you list the clients or managed nodes 
+ -Core Modules: There are over 500 defaults modules that comes with an Ansible installation
+ -Custom Modules:
+ -Playbooks: This is where is write out the task to needs to be performed
+ -Connections Plugins: 
+
+
+Ansible Modules:
+ -Core Modules: Included by defaults with the installation of Ansible packages. They are the most commonly used modules by an administrator.
+ -Extra Modules: These are modules that currently included with Ansible but are not maintained by the Ansible development team. These modules are
+                maintained by the community to manage newer technologies such openStack etc.
+ -Custom Modules: These are modules that are created and managed by the end user to perform a sepcific tasks that core modules cant not perform. 
+                With the knowledge of Python language, end user can create a custom modules  .
+ -Module directory (for RHEL 7&8):     /usr/lib/python2.7/site-packages/ansible
+ -Module directory (for RHEL 6 OR LOWER):  /usr/share/my_modules
+ 
+Ansible.cfg:
+[privilege_escalation]
+ #become=True
+ #become_method=sudo
+ #become_user=root
+ #become_ask_pass=False or True (either with passwd=True or without passwd=False)
+
+
+Running Ad Hoc Commands:
+
+ansible host-pattern -m command -a 'module argument'
+ansible host-pattern -a 'module argument'
+
+example:
+
+ansible PROD -m command -a /usr/bin/hostname  - (to check for the hostname of all the servers in the PROD group)
+ansible PROD -m command -a /usr/bin/hostname -o
+
+ansible -m copy -a "src=/etc/hosts dest=/tmp/hosts" PROD - (this means copy file from /etc/host to /tmp/hosts (and making the name hosts) to the PROD group)
+ansible -m copy -a "src=/etc/hosts dest=/tmp/hosts" PROD --become -K
+ansible -m file -a "dest=/tmp/test_nameoffile mode=777 owner=ola group=ola" dev --become -K
+ansible -m file -a "dest=/tmp/test_nameoffile state=absent" PROD --become -K ( This means to delet this file from all the hosts)
+ansible -m copy -a 'content="Put this in the file in the dest servers in the group servers\n" dest=/tmp/test_nameoffile' PROD --become -K  (to put content in the file of a remote nodesin the group hosts)
+ansible -m yum -a "name=tree state=present" Testing --become -K
+ansible Testing -m yum -a "name=tree state=present" --become -K 
+ansible -m service -a "name=tree state=started enabled=yes" Testing --become -K
+ansible-playbook install.yml -K -C
+ansible-playbook --step install.yml -K (this is when you want the tasks to be executed step by step with your confirmation)
+ansible-playbook --syntax-check install.yml (this is to check the syntax of the playbook)
+ansible-galaxy init "scripttest"
+ansible ipaddress -m setup = this give you the list of facts on the manage hosts
+ansible ipaddress -m setup -a 'filter=ansible_dns'
+ansible ipaddress -m setup -a 'filter=ansible_eth0'
+rpm -qa|grep -i tree
+
+
+ansible localhost -m shell -a set
+ansible localhost -m command -a set
+ansible -m command -a "set" dev
+ansible -m shell -a "set" dev
+
+============================================================================================================================================================
+
+---
+- hosts: Testing
+  become: true
+  become_user: root
+  tasks:
+   - name: Copy file
+     copy:
+      src: /home/olami/sample
+	  dest: /home/olami/sample1
+	  owner: olami
+	  group: root
+	  mode: 0777
+   - name: file permission
+     file:
+	  dest: /home/olami/bukky
+	  owner: olami
+	  group: olami
+	  mode: 0744
+   - name: Insert content in file
+     copy:
+	  content: Put this in the file to test for copy module
+	  dest: /home/olami/bukky
+
+============================================================================================================================================================
+
+[test]
+test1   ansible_host=10.234.194.107     ansible_user=jboss
+test2   ansible_host=10.234.194.83      ansible_user=jboss-eap
+test3   ansible_host=10.234.194.136     ansible_user=jboss
+test4   ansible_host=10.234.194.166     ansible_user=jboss-eap
+
+
+[impl]
+impl1   ansible_host=10.138.36.126      ansible_user=jboss
+impl2   ansible_host=10.138.36.124      ansible_user=jboss-eap
+impl3   ansible_host=10.138.36.155      ansible_user=jboss
+impl4   ansible_host=10.138.36.171      ansible_user=jboss-eap
+
+
+
+[prod]
+prod1   ansible_host=10.245.122.62      ansible_user=jboss
+prod2   ansible_host=10.245.122.179     ansible_user=jboss
+
+============================================================================================================================================================
+- hosts: test
+  become: yes
+  vars:
+    deploy_home: "/app/jboss-eap-6.4/standalone"
+    art_home: "/app/JenkinsSlave/RootDirectory/workspace/asp-clfs-Master_branch/ffsdcsApp-Maven-Webapp/target"
+    deploy_app: ffsdcsApp-1.6-SNAPSHOT.war
+    deploy_data: ffsdcsData*.war
+  tasks:
+
+    - copy:
+        src: "{{art_home}}/{{deploy_app}}"
+        dest: "{{deploy_home}}/deployments/{{deploy_app}}"
+        backup: yes
+
+    - name: Set files permissions
+      file: path={{ item }} owner=jboss group=jbossgrp mode=0644
+      with_items:
+        - "{{deploy_home}}/deployments/{{deploy_app}}"
+
+
+    - name: Restart service jboss, after deployment
+      service:
+        name: jboss
+        state: restarted
+      become: yes
+
+
+
+============================================================================================================================================================
+
+
+---
+- hosts: dev
+  become: false
+  tasks:
+  
+   - name: "Copy file to remote location"
+     copy:
+      src: /home/ansible-user/sample2
+      dest: /home/tomcat-user/sample3
+     
+   - name: "Insert content"
+     copy:
+      content: "Perform for testing"
+      dest: //home/tomcat-user/sample3
+  
+
+============================================================================================================================================================
+---
+- hosts: test
+  become: yes
+  vars:
+   deploy_home: "/home/ansible-user/result/target"
+   warfile_home: "/opt/lib/jenkins/workspace/Hello-war-Ansible/target"
+   warfile_name: hello-world-war-1.1.2.war
+  tasks:
+  
+   - name: "Copy war file from deployment home"
+     copy:
+      src: "{{warfile_home}}/{{warfile_name}}"
+      dest: "{{deploy_home}}/{{warfile_name}}"
+      backup: true
+      
+   - name: "Set file permission"
+     file:
+      dest: "{{deploy_home}}/{{warfile_name}}"
+      mode: 0777
+      owner: tomcat-user
+      group: tomcat-user
+
+   - name: "Restart Application"
+     service:
+      name: jboss
+      state: restarted
+     become: yes 
+    
+  ===========================================================================================================================================================
+#cp -p /etc/ssh/sshd_config /etc/ssh/sshd_config-bak
+#vim /etc/ssh/sshd_config
+#systemctl restart sshd
+#passwd root
+
+============================================================================================================================================================
+---
+- hosts: Testing
+  become: True
+  become_user: root
+  tasks:
+   - name: install apache
+     yum:
+       name: httpd
+       state: latest
+   - name: ensure httpd is running
+     service:
+       name: httpd
+       state: started
+     when: ansible_distribution == "Redhat" and ansible_distribution_major_version == "7"
+   - name: Ensuring httpd service is started and enabled
+     service:
+       name: httpd
+       state: started
+       enabled: yes
+   - name: update system
+     yum:
+	   name: "*"
+	   state: latest
+   - name: install wget on system
+     yum:
+	   name: wget
+	   state: latest
+   - name: Permit http service
+     firewalld:
+	   service: http
+	   permanent: true
+	   state: enabled
+	   immediate: yes
+   - name: Define the Web Server Name
+     lineinfile:
+	   path: /etc/httpd/conf/httpd.conf/httpd
+	   line: ServerName  www.olabiyi.example.com:80
+	   insertafter: "#ServerName"
+   - name: Update its entry in /etc/hosts
+     lineinfile:
+	   path: /etc/hosts
+	   line: 192.168.0.10 www.olabiyi.example.com
+	   
+
+	 
+	 
+==========================================================================================================================================
+Variables:
+
+---
+- name: Install apache and start the service
+  hosts: Testing
+  become: true
+  become_user: root
+  vars:
+   web_pkg: httpd
+   firewall_pkg: firewalld
+   wget_pkg: wget
+   web_service: httpd
+   firewall_service: firewalld
+   perl_pkg: perl
+   rule: http
+   
+   tasks:
+    - name: Install the require packages {{ web_pkg }}, {{ firewall_pkg }}, {{ wget_pkg }}, {{ perl_pkg }}
+      yum:
+	   name:
+	    - "{{ web_pkg }}"
+	    - "{{ firewall_pkg }}"
+	    - "{{ wget_pkg }}"
+	    - "{{ perl_pkg }}"
+        state: latest
+	  
+   - name: Start and enabled the  {{ firewall_service }}
+     service:
+	  name: "{{ firewall_service }}"
+	  enabled: yes
+	  state: started
+	 
+   - name: Start and enable {{ web_service}}
+     service:
+	  name: "{{ web_service }}"
+	  state: started
+	  enabled: true
+
+   - name: Create web content
+     copy:
+	  content: "welcome to the world"
+	  dest: /var/www/html/index.html 
+
+   - name: Open port for {{ rule }}
+     firewalld:
+      service: "{{ rule }}
+	  permanent: true
+	  immediate: true
+	  state: enabled
+
+
+====================================================================================================================================================
+Ansible_ Facts: (Note: ansible ipaddress -m setup) this give you the list of facts on the manage hosts)
+
+---
+- hosts: Testing
+  tasks: 
+   - name: Print various Ansible facts
+     debug:
+	  msg: >
+	    The defaultIPv4 address of {{ ansible_fqdn }} is {{ ansible_default_ipv4.address }}
+  
+
+
+=====================================================================================================================================================
+Ansible File to run script:
+
+---
+- hosts: Testing
+  become: True
+  become_user: root
+  tasks:
+   - name: run script
+     script: /home/olami/david/install.sh
+     when: ansible_distribution =="Redhat" and ansible_distribution_major =='7' 
+=======================================================================================================================================================
+Managing Variables:
+        Host variables and group variables
+
+Host Variables:
+
+[servers]
+192.168.12.04 ansible_user=joe
+
+Group Variables:
+
+[servers]
+192.168.12.1
+192.168.12.13
+
+[servers:vars]
+user=joe
+
+
+Group variables:
+
+[server1]
+192.168.12.30
+192.168.12.445
+
+[server2]
+192.168.12.60
+192.168.12.85
+
+[servers:children]
+server1
+server2
+[servers:vars]
+user=joe
+
+
+
+============================================================================================================================================================
+
+---
+- name: Install remote facts
+  hosts: Dev
+  become: true
+  vars:
+   remote_dir: /etc/ansible/fact.d
+   facts_file: custom.fact
+  tasks:
+   - name: Creat a remote directory
+     file:
+      state: directory
+      recurse: yes
+      path: "{{ remote_dir }}"
+   - name: Install the new file
+     copy:
+      src: "{{ fact_file }}"
+      dest: "{{ remote-dir }}"
+
+=================================================================================================================================================
+	
+	netstat -an|grep 8080|grep inet6
+	
+==========================================================================================================================================================
+
+
+	Ansible Installation
+====================
+
+## RHEL/CentOS 7 64-Bit ##
+# wget http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+# rpm -ivh epel-release-latest-7.noarch.rpm
+
+## RHEL/CentOS 6 32-Bit ##
+# wget http://dl.fedoraproject.org/pub/epel/6/i386/epel-release-6-8.noarch.rpm
+# rpm -ivh epel-release-6-8.noarch.rpm
+## RHEL/CentOS 6 64-Bit ##
+# wget http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
+# rpm -ivh epel-release-6-8.noarch.rpm
+
+# yum install epel-release 
+
+How Do I Verify EPEL Repo?
+
+You need to run the following command to verify that the EPEL repository is enabled. Once you ran the command you will see epel repository.
+
+# yum repolist
+
+# yum install python2-pip
+
+# pip install --upgrade pip
+
+# pip install ansible
+
+# ansible --version
+ 
+/usr/bin/ansible --version
+ansible 2.6.2
+  config file = None  ==> missing
+  configured module search path = [u'/root/.ansible/plugins/modules', u'/usr/share/ansible/plugins/modules']
+  ansible python module location = /usr/lib/python2.7/site-packages/ansible
+  executable location = /usr/bin/ansible
+  python version = 2.7.5 (default, Oct 11 2015, 17:47:16) [GCC 4.8.3 20140911 (Red Hat 4.8.3-9)]
+
+# cd /tmp
+
+# wget https://raw.githubusercontent.com/ansible/ansible/devel/examples/ansible.cfg
+
+# mkdir /etc/ansible
+
+# cp- p /tmp/ansible.cfg /etc/ansible
+
+# cd /etc/ansible
+
+# touch hosts
+
+# chmod 777 hosts
+
+
+=================
+=================
+
+Create a normal user control node and all your managed hosts as well
+
+From Control Node:
+
+# useradd sverma
+# passwd sverma
+# su - sverma
+
+Create the same users for all the managed hosts and also create .ssh at user's home directory
+
+# useradd sverma
+# passwd sverma
+# su - sverma
+# mkdir .ssh
+# chmod 700 .ssh
+
+Create password less authentication
+
+# login to control node as sverma
+# ssh-keygen
+# ls -ltrd
+# cd .ssh
+# scp -p id_rsa.pub client1.example.com:/home/sverma/.ssh/authorized_keys
+# scp -p id_rsa.pub client2.example.com:/home/sverma/.ssh/authorized_keys
+# scp -p id_rsa.pub client3.example.com:/home/sverma/.ssh/authorized_keys
+
+Verify your access, it should be password less from your control node to all your managed hosts
+
+===============
+===============
+
+From Control Node:
+
+# su - sverma
+# vi /etc/ansible/hosts
+[testing]
+client1.example.com
+client2.example.com
+client3.example.com
+
+ansible -m command -a "uptime" testing
+
+==============
+==============
+
+
+For Administrative commands where it requires admin rights
+
+From managed hosts
+
+login to client1.example.com
+
+visudo
+sverma  ALL=(ALL)  PASSWD: ALL
+
+Same for all the managed hosts
+
+ansible -m command -a "lvdisplay" testing --become -K
+
+==============
+==============
+ 
+
+
+ansible-playbook --connection=local --inventory 127.0.0.1, --limit 127.0.0.1 apache.yml -i webserver
+
+
+[dev]
+dev1   ansible_host=172.31.29.68 ansible_user=ansible-user
+
+

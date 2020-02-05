@@ -1,0 +1,14 @@
+---
+- hosts: dev
+  become: false
+  tasks:
+  
+   - name: "Copy file to remote location"
+     copy:
+      src: /home/ansible-user/sample2
+      dest: /home/tomcat-user/sample3
+     
+   - name: "Insert content"
+     copy:
+      content: "Perform for testing"
+      dest: //home/tomcat-user/sample3

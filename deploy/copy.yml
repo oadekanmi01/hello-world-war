@@ -1,0 +1,22 @@
+---
+- hosts: Testing
+  become: true
+  become_user: root
+  tasks:
+   - name: Copy file
+     copy:
+      src: /home/olami/sample
+	  dest: /home/olami/sample1
+	  owner: olami
+	  group: root
+	  mode: 0777
+   - name: file permission
+     file:
+	  dest: /home/olami/bukky
+	  owner: olami
+	  group: olami
+	  mode: 0744
+   - name: Insert content in file
+     copy:
+	  content: Put this in the file to test for copy module
+	  dest: /home/olami/bukky

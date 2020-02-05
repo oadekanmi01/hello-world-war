@@ -1,0 +1,27 @@
+---
+- hosts: test
+  become: yes
+  vars:
+   deploy_home: "/home/ansible-user/result/target"
+   warfile_home: "/opt/lib/jenkins/workspace/Hello-war-Ansible/target"
+   warfile_name: hello-world-war-1.1.2.war
+  tasks:
+  
+   - name: "Copy war file from deployment home"
+     copy:
+      src: "{{warfile_home}}/{{warfile_name}}"
+      dest: "{{deploy_home}}/{{warfile_name}}"
+      backup: true
+      
+   - name: "Set file permission"
+     file:
+      dest: "{{deploy_home}}/{{warfile_name}}"
+      mode: 0777
+      owner: tomcat-user
+      group: tomcat-user
+
+   - name: "Restart Application"
+     service:
+      name: jboss
+      state: restarted
+     become: yes 

@@ -1,0 +1,176 @@
+pipeline {
+    agent {
+        label'Slave02'
+    }
+    parameters {
+        choice(name: 'target_env', choices: ['dev', 'newdev', 'test', 'impl', 'prod'], description: 'Defining env target environment',)
+        choice(name: 'mysql_service_name', choices: ['dbdev','dbtest', 'dbimpl', 'dbprod', 'NODBDEPLOYMENT'], description: 'Defining app db Service Name',)
+        choice(name: 'data_deployment', choices: ['deploy_data', 'NODATADEPLOYMENT'], description: 'Defining app data deploy',)
+        string(name: 'Version', defaultValue: '', description: 'The release version to deploy. Example: 0001')
+        
+        booleanParam(name: 'DryRun', 
+               defaultValue: true, 
+               description: 'If true, deployment conditions are validated on the app servers without carrying out deployment.')
+                
+                                string(name: 'JBossAccount', 
+               defaultValue: '', 
+               description: 'Your Jboss account id, needed to run ansible with admin privileges. Example: myjboss')
+
+        password(name:'JBossPassword',
+               defaultValue: '',
+               description: 'JBossAccount password')
+        booleanParam defaultValue: true, description: '', name: 'DRY RUN?'
+                credentials(
+            credentialType: 'com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl',
+            defaultValue: '',
+            description: 'The credentials needed to deploy.',
+            name: 'archivecredentialId',
+            required: true
+                )
+        string(name: 'mysql_Port', defaultValue: '', description: 'app mysql connection port',)
+        choice(name: 'remote_user', choices: ['jboss-eap', 'jboss', 'ec2-user', 'jenkins'], description: 'app remote user per environment',)
+    }
+    environment {
+        username            = "${params.JBossAccount}".trim()
+        password            = "${params.JBossPassword}"
+        ANSIBLE_HOST_KEY_CHECKING = "False"
+
+        JENKINS_Sonarqube_CRED_ID   = "0f301125481c82c1c8a410541b0fb6638b5dc211"
+                                SONARQUBE_URL                           = "http://10.245.119.109:9000"
+    }
+    stages {
+        stage('SCM checkout') {
+            steps {
+                checkout([$class: 'GitSCM', branches: [[name: '*/test']],  userRemoteConfigs: [[credentialsId: '18305f92-3568-4839-aeeb-7a2ec9e7ec87', url: 'https://github.cms.gov/ffsdcs-medicare/asp-clfs.git']]])
+            }
+        }
+        stage('Verify Tools') {
+                parallel {
+                        stage('Verify Git') {
+                                steps {
+                                    sh 'git --version'
+                                }
+                        }
+                        stage('Verify Maven') {
+                                steps {
+                                    sh 'mvn -v'
+                                }
+                        }
+                }
+        }
+        stage('send email notification') {
+            steps {
+                emailext (
+                    subject: "Job '${env.JOB_NAME} ${env.BUILD_NUMBER}'",
+                    body: """afs data and app deployment is in Progress, Check console output at "${env.BUILD_URL}" and monitor the console log. """,
+                    to: "FFSDCSTeam@DCCA.com",
+                    from: "pibekwe@dcca.com"
+                    )
+            }
+        }
+        stage('SonarQube analysis') {
+            steps {
+              //  withSonarQubeEnv('SonarQube') {
+                //    withCredentials([string(credentialsId: 'Sonarkey', variable: 'SonarLogin')]) {
+                    sh 'mvn -X clean install -Dmaven.test.skip=true sonar:sonar -Dsonar.host.url="${SONARQUBE_URL}" -Dsonar.login="${JENKINS_Sonarqube_CRED_ID}"'
+                  //      sh 'mvn -X clean install -Dmaven.test.skip=true sonar:sonar -Dsonar.login=${SonarLogin}'
+                 //  }
+             //  }
+            }
+        }
+        stage('running asp deployment script in dev app zone') {
+            when {
+                 expression { params.target_env == 'dev'}
+            }
+            steps {
+                    sh """
+                    echo "running app deployment script in asp_cls ${target_env} environment"
+                    ansible-playbook ${WORKSPACE}/deploy/devtest.yml -i ${WORKSPACE}/deploy/hosts --limit dev1 -u ${remote_user} -b -k --extra-vars "ansible_ssh_pass=$JBossAccount ansible_become_pass=$JBossPassword"
+                    """
+            }
+        }
+        stage('running asp deployment script in dev data zone') {
+            when {
+                 expression { params.data_deployment == 'deploy_data'}
+            }
+            steps {
+                    sh """
+                    echo "running app deployment script in asp_cls ${target_env} environment"
+                    ansible-playbook ${WORKSPACE}/deploy/devdatatest.yml -i ${WORKSPACE}/deploy/hosts --limit dev2 -u ${remote_user} -b -k --extra-vars "ansible_ssh_pass=$JBossAccount ansible_become_pass=$JBossPassword dep_ver=$Version dep_env=$target_env"
+                    """
+            }
+        }
+        stage('running asp deployment script in test app zone') {
+            when {
+                 expression { params.target_env == 'test'}
+            }
+            steps {
+                    sh """
+                    echo "running app deployment script in asp_cls ${target_env} environment"
+                    ansible-playbook ${WORKSPACE}/deploy/testApp.yml -i ${WORKSPACE}/deploy/hosts --limit test1 -u ${remote_user} -b -k --extra-vars "ansible_ssh_pass=$JBossAccount ansible_become_pass=$JBossPassword dep_ver=$Version dep_env=$target_env"
+                    """
+            }
+        }
+        stage('running asp deployment script in test data zone') {
+            when {
+                 expression { params.target_env == 'test'}
+            }
+            steps {
+                    sh """
+                    echo "running app deployment script in asp_cls ${target_env} environment"
+                    ansible-playbook ${WORKSPACE}/deploy/testData.yml -i ${WORKSPACE}/deploy/hosts --limit test3 -u ${remote_user} -b -k --extra-vars "ansible_ssh_pass=$JBossAccount ansible_become_pass=$JBossPassword dep_ver=$Version dep_env=$target_env"
+                    """
+            }
+        }
+        stage('running asp deployment script in impl app zone') {
+            when {
+                 expression { params.target_env == 'impl'}
+            }
+            steps {
+                    sh """
+                    echo "running app deployment script in asp_cls ${target_env} environment"
+                    ansible-playbook ${WORKSPACE}/deploy/implApp.yml -i ${WORKSPACE}/deploy/hosts --limit impl1 -u ${remote_user} -b -k --extra-vars "ansible_ssh_pass=$JBossAccount ansible_become_pass=$JBossPassword dep_ver=$Version dep_env=$target_env"
+                    """
+            }
+        }
+        stage('running asp deployment script in impl data zone') {
+            when {
+                 expression { params.target_env == 'impl'}
+            }
+            steps {
+                    sh """
+                    echo "running app deployment script in asp_cls ${target_env} environment"
+                    ansible-playbook ${WORKSPACE}/deploy/impldata.yml -i ${WORKSPACE}/deploy/hosts --limit impl3 -u ${remote_user} -b -k --extra-vars "ansible_ssh_pass=$JBossAccount ansible_become_pass=$JBossPassword dep_ver=$Version dep_env=$target_env"
+                    """
+            }
+        }
+        stage('running asp deployment script in prod app zone') {
+            when {
+                 expression { params.target_env == 'prod'}
+            }
+            steps {
+                    sh """
+                    echo "running app deployment script in asp_cls ${target_env} environment"
+                    ansible-playbook ${WORKSPACE}/deploy/prodApp.yml -i ${WORKSPACE}/deploy/hosts --limit prod1 -u ${remote_user} -b -k --extra-vars "ansible_ssh_pass=$JBossAccount ansible_become_pass=$JBossPassword dep_ver=$Version dep_env=$target_env"
+                    """
+            }
+        }
+        stage('running asp deployment script in prod data zone') {
+            when {
+                 expression { params.target_env == 'prod'}
+            }
+            steps {
+                    sh """
+                    echo "running app deployment script in asp_cls ${target_env} environment"
+                    ansible-playbook ${WORKSPACE}/deploy/prodData.yml -i ${WORKSPACE}/deploy/hosts --limit prod2 -u ${remote_user} -b -k --extra-vars "ansible_ssh_pass=$JBossAccount ansible_become_pass=$JBossPassword dep_ver=$Version dep_env=$target_env"
+                    """
+            }
+        }
+    }
+    post {
+        always {
+            archiveArtifacts artifacts: 'ffsdcsData-Maven-Webapp/**/*.jar', fingerprint: true
+         //   junit 'build/reports/**/*.xml'
+        }
+    }
+}

@@ -1,0 +1,66 @@
+pipeline {
+
+    agent { label('Slave01') }
+
+    environment {
+        username            = "${params.JBossAccount}".trim()
+        password            = "${params.JBossPassword}"
+        ANSIBLE_HOST_KEY_CHECKING = "False"
+
+        JENKINS_Sonarqube_CRED_ID   = "0f301125481c82c1c8a410541b0fb6638b5dc211"
+		SONARQUBE_URL		= "http://10.245.119.109:9000"
+	}
+
+    stages {
+        stage('SCM checkout commom') {
+            steps {
+                checkout([$class: 'GitSCM', branches: [[name: '*/development']],  userRemoteConfigs: [[credentialsId: '18305f92-3568-4839-aeeb-7a2ec9e7ec87', url: 'https://github.cms.gov/ffsdcs-medicare/common.git']]])
+            }
+        }
+        stage("Build with Maven Project") {
+			steps {
+			    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                 sh "exit 0"
+				}      
+			   sh 'mvn clean install -Dmaven.test.skip=true' 
+			}
+        }
+		stage('SCM checkout user') {
+            steps {
+                checkout([$class: 'GitSCM', branches: [[name: '*/development']],  userRemoteConfigs: [[credentialsId: '18305f92-3568-4839-aeeb-7a2ec9e7ec87', url: 'https://github.cms.gov/ffsdcs-medicare/web-app.git']]])
+            }
+        }
+		stage("Build with Maven") {
+			steps { 
+				dir('gadcs-web-app') {
+					sh """
+					mvn -X clean install -Dmaven.test.skip=true sonar:sonar -Dsonar.host.url="${SONARQUBE_URL}" -Dsonar.login="${JENKINS_Sonarqube_CRED_ID}"
+					"""
+				}
+            }
+        }
+		stage('Cleanup') {
+			steps {
+				cleanWs()
+			}
+		}
+	}	
+    post {
+		always {
+			echo 'I have finished and deleting workspace'
+			deleteDir() 
+		}
+		success {
+			echo 'Job succeeeded!'
+		}
+		unstable {
+			echo 'I am unstable :/'
+		}
+		failure {
+			echo 'I failed :('
+		}
+		changed {
+			echo 'Things were different before...'
+		}
+	}
+}

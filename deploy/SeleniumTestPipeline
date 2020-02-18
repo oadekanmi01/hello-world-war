@@ -1,0 +1,51 @@
+pipeline {
+  agent none
+
+  options {
+    skipDefaultCheckout()
+    buildDiscarder(logRotator(artifactDaysToKeepStr: '30', artifactNumToKeepStr: '30', daysToKeepStr: '30', numToKeepStr: '50'))
+    disableConcurrentBuilds()
+  }
+
+  parameters {
+    choice(
+      name: 'featureToTest',
+      choices: ['grants', 'chip-allotment', 'dsh-allotment', 'uesr-management', 'ibnrs'],
+      description: 'Select Feature To Test'
+    )
+
+  stages {
+
+    stage('checkout Code') {
+      agent {
+        label 'tools2'
+      }
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Selenium Test') {
+       agent {
+         label 'tools2'
+       }
+       environment {
+         DEV_SEL_HM = "${WORKSPACE}/macfin-testing/dev/selenium-test-pipeline"
+       }
+       steps {
+         dir("${DEV_SEL_HM}") {
+           sh "env"
+           sh "mvn clean test"
+         }
+
+         //  Publishing Selenium Reports
+         // Enable Below Property in Script Console
+         // System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "")
+           publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: true, reportDir: "${DEV_SEL_HM}/Reports/Report-Html", reportFiles: 'MacFin-TestReport.html', reportName: 'Selenium Smoke Test Report', reportTitles: ''])
+
+         // Archiving artifacts
+         archiveArtifacts artifacts: '**/*.png', fingerprint: true, onlyIfSuccessful: true
+       }
+    }
+  }
+}

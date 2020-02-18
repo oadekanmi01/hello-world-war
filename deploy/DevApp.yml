@@ -1,0 +1,29 @@
+- hosts: all
+  become: yes
+  vars:
+    deploy_home: "/usr/share/jboss-eap/standalone/deployments"
+    art_home: "/app/JenkinsSlave/RootDirectory/workspace/${JOB_BASE_NAME}/ffsdcsApp-Maven-Webapp/target"
+    deploy_app: "{{ lookup('env', 'WORKSPACE') }}/target/*.war"
+
+  tasks:
+
+    # first ensure our target directory exists
+    - name: Ensure target directory exists
+      file:
+        dest: "{{ deploy_home }}"
+        state: directory
+
+    # copy each file over that matches the given pattern
+    - name: Copy each file over that matches the given pattern
+      copy:
+        src: "{{ item }}"
+        dest: "{{ deploy_home }}"
+        backup: yes
+        owner: "jboss-eap"
+        mode: 0644
+      with_fileglob:
+        - "/app/JenkinsSlave/RootDirectory/workspace/${JOB_BASE_NAME}/ffsdcsApp-Maven-Webapp/target/*.war"
+
+
+    - name: Restart service jboss, after deployment
+      command: systemctl restart jboss-eap

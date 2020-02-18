@@ -1,0 +1,34 @@
+dev1 ansible_host=10.224.54.26	ansible_user=jboss-eap		
+dev2 ansible_host=10.224.54.180	ansible_user=jboss-eap
+
+newdev1 ansible_host=10.224.54.51 ansible_user=jboss-eap
+newdev2 ansible_host=10.224.54.141 ansible_user=jboss-eap
+
+test1 ansible_host=10.234.194.107 ansible_user=jboss
+test2 ansible_host=10.234.194.83  ansible_user=jboss
+test3 ansible_host=10.234.194.136 ansible_user=jboss
+test4 ansible_host=10.234.194.166 ansible_user=jboss
+
+[dev]
+dev1
+dev2
+
+[newdev]
+newdev1 
+newdev2 
+
+[test]
+test1	
+test2	
+test3	
+test4	
+
+[impl]
+impl1	ansible_host=10.138.36.126	ansible_user=jboss-eap
+impl2	ansible_host=10.138.36.124	ansible_user=jboss-eap
+impl3	ansible_host=10.138.36.155	ansible_user=jboss-eap
+impl4	ansible_host=10.138.36.171	ansible_user=jboss-eap
+
+[prod]
+prod1	ansible_host=10.245.122.62	ansible_user=jboss-eap
+prod2	ansible_host=10.245.122.179	ansible_user=jboss-eap
